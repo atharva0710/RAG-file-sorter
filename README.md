@@ -1,156 +1,149 @@
-# 🧪 Content Alchemist — User Guide
+# Content Alchemist
 
 **RAG-based Intelligent Auto-tagger**  
-Automatically organize your messy PDFs and text files using AI.
+Automatically organize and classify PDF and text files using AI-powered content analysis.
 
----
+## Overview
 
-## 📖 What Does This Do?
+Content Alchemist is a Python-based file organization system that monitors a designated folder for new files. When a PDF or TXT file is added, the system:
 
-Content Alchemist watches a folder on your computer. When you drop a file (PDF or TXT) into it:
+1. Extracts text content from the file
+2. Analyzes the content using Google Gemini AI
+3. Generates an intelligent, descriptive filename
+4. Categorizes and moves the file to the appropriate folder
+5. Stores metadata and summaries in a searchable SQLite database
 
-1. **Reads** the file and extracts text
-2. **Understands** the content using Google Gemini AI
-3. **Renames** the file intelligently (e.g., `2026_genetic_encoding_analysis.pdf`)
-4. **Moves** it to the correct category folder (e.g., `ML-Bio`, `Systems CS`, `Finance`, `Personal`)
-5. **Saves** a summary to a database so you can search later
+## Features
 
----
+- **Automated File Monitoring**: Uses watchdog library to detect new files in real-time
+- **Intelligent Classification**: Leverages Google Gemini AI for content understanding
+- **Dynamic Categories**: Supports predefined categories with automatic creation of new ones as needed
+- **Smart Renaming**: Generates descriptive filenames in snake_case format with year prefixes
+- **Searchable Archive**: Full-text search capabilities through an integrated dashboard
+- **SQLite Logging**: Maintains a complete audit trail of all processed files
 
-## 🚀 Quick Start (5 Steps)
+## Quick Start
 
-### Step 1: Install Dependencies
+### Prerequisites
 
-Open your terminal in the project folder and run:
+- Python 3.9 or higher
+- Google Gemini API key ([Get one here](https://aistudio.google.com/apikey))
+
+### Installation
+
+1. Clone the repository:
 
 ```bash
-cd /Users/atharvamandhaniya/Desktop/Python/RAG_fileSorter
+git clone https://github.com/atharva0710/RAG-file-sorter.git
+cd RAG-file-sorter
+```
+
+2. Install dependencies:
+
+```bash
 python3 -m pip install -r requirements.txt
 ```
 
-This installs all the libraries you need (PyPDF2, Streamlit, watchdog, etc.).
-
----
-
-### Step 2: Add Your API Key
-
-You already have a `.env` file with your Gemini API key. If you need to change it:
+3. Configure your API key:
 
 ```bash
-# Open the .env file
-nano .env
-
-# It should look like this:
-GEMINI_API_KEY=your-actual-api-key-here
+cp .env.example .env
+# Edit .env and add your API key:
+# GEMINI_API_KEY=your-actual-api-key-here
 ```
 
-Save and exit (`Ctrl+X`, then `Y`, then `Enter`).
+### Usage
 
----
+#### Starting the File Watcher
 
-### Step 3: Start the Watcher
-
-The watcher is the "brain" that monitors your drop zone. Start it:
+The watcher monitors the input directory and processes files automatically:
 
 ```bash
 python3 watcher.py
 ```
 
-You'll see:
+Leave this terminal running. The watcher will display:
 
 ```
-👁  Watching '/Users/atharvamandhaniya/Desktop/Python/RAG_fileSorter/input_drop_zone' for new files...
-   Drop a PDF or TXT file in there and watch the magic.
-   Press Ctrl+C to stop.
+Watching '/path/to/input_drop_zone' for new files...
+Press Ctrl+C to stop.
 ```
 
-**Leave this terminal running.** Open a new terminal for the next step.
+#### Starting the Dashboard (Optional)
 
----
-
-### Step 4: Start the Dashboard (Optional)
-
-The dashboard lets you browse and search your organized files. In a **new terminal**:
+Launch the Streamlit dashboard in a separate terminal:
 
 ```bash
-cd /Users/atharvamandhaniya/Desktop/Python/RAG_fileSorter
 streamlit run main_dashboard.py
 ```
 
-Your browser will open automatically to `http://localhost:8501`.
+The dashboard will open in your browser at `http://localhost:8501`.
 
----
+#### Processing Files
 
-### Step 5: Drop a File and Watch
+1. Copy or move any PDF or TXT file into the `input_drop_zone/` folder
+2. The watcher will automatically:
+   - Extract text content
+   - Classify the document
+   - Generate a descriptive filename
+   - Move it to the appropriate category folder
+   - Log the transaction to the database
 
-1. Find any PDF or TXT file on your computer (research paper, article, notes, etc.)
-2. **Copy or move it** into the `input_drop_zone/` folder
-3. Watch the terminal where `watcher.py` is running
-
-You'll see something like:
+Example output:
 
 ```
-============================================================
 [watcher] New file detected: my_messy_file.pdf
-============================================================
 [watcher] Classifying...
 [watcher] Category : ML-Bio
 [watcher] New name : 2026_protein_folding_research.pdf
 [watcher] Summary  : This paper discusses protein folding using deep learning.
-[organizer] Moved → /Users/.../organized_storage/ML-Bio/2026_protein_folding_research.pdf
-[logger] Saved record for '2026_protein_folding_research.pdf' in category 'ML-Bio'
-[watcher] ✅ Done!
+[organizer] Moved to /organized_storage/ML-Bio/2026_protein_folding_research.pdf
+[logger] Saved record for '2026_protein_folding_research.pdf'
+[watcher] Done!
 ```
 
-4. Check the `organized_storage/` folder — your file is now there, renamed and organized!
-
----
-
-## 📂 Folder Structure
+## Project Structure
 
 ```
 RAG_fileSorter/
-├── input_drop_zone/          ← Drop files here
-├── organized_storage/         ← Organized files appear here
+├── input_drop_zone/          # Input directory for new files
+├── organized_storage/         # Output directory with categorized files
 │   ├── ML-Bio/
 │   ├── Systems CS/
 │   ├── Finance/
 │   └── Personal/
-├── watcher.py                 ← The automation script
-├── main_dashboard.py          ← The Streamlit UI
-├── processor.py               ← Extracts text from PDFs/TXT
-├── classifier.py              ← Talks to Gemini AI
-├── organizer.py               ← Moves and renames files
-├── db.py                      ← SQLite logger
-└── content_alchemist.db       ← Database (auto-created)
+├── watcher.py                 # File monitoring daemon
+├── main_dashboard.py          # Streamlit web interface
+├── processor.py               # Text extraction module
+├── classifier.py              # AI classification engine
+├── organizer.py               # File management utilities
+├── db.py                      # SQLite database interface
+├── test_pipeline.py           # Manual processing script
+└── content_alchemist.db       # SQLite database (auto-created)
 ```
 
----
+## Dashboard Features
 
-## 🎯 Using the Dashboard
+The Streamlit dashboard provides two main interfaces:
 
-Once you run `streamlit run main_dashboard.py`, you'll see two tabs:
+### Recent Files Tab
 
-### 📋 Recent Tab
+- Displays the last 20 processed files in a table format
+- Columns: Original Filename, New Filename, Category, Summary, Timestamp
 
-- Shows a table of the **last 20 processed files**
-- Columns: Original Filename, New Filename, Category, Summary, Processed At
+### Query Tab
 
-### 🔍 Query Tab
+- Full-text search across file summaries
+- Example queries:
+  - "What papers are about Biology?"
+  - "Show me finance documents"
+  - "transformer protein"
 
-- Type questions like:
-  - _"What papers are about Biology?"_
-  - _"Show me finance documents"_
-  - _"transformer protein"_
-- The app searches the **summary** column and shows matching files
+## Configuration
 
----
+### Adding Categories
 
-## 🛠️ Common Tasks
-
-### How do I add more categories?
-
-Edit `classifier.py` and change the `VALID_CATEGORIES` list:
+Edit the `VALID_CATEGORIES` list in `classifier.py`:
 
 ```python
 VALID_CATEGORIES = [
@@ -158,114 +151,110 @@ VALID_CATEGORIES = [
     "ML-Bio",
     "Personal",
     "Finance",
-    "History",        # Add new ones here
+    "History",        # Add custom categories
     "Philosophy",
 ]
 ```
 
-### How do I change the AI model?
+**Note**: The system can also dynamically create new categories. If a file doesn't fit existing categories, the AI will suggest an appropriate new category name.
 
-Edit `classifier.py` and change the `MODEL_NAME`:
+### Changing the AI Model
+
+Modify the `MODEL_NAME` variable in `classifier.py`:
 
 ```python
 MODEL_NAME = "gemini-flash-latest"  # or "gemini-2.0-flash", etc.
 ```
 
-### How do I stop the watcher?
+### Data Storage Locations
 
-Press `Ctrl+C` in the terminal where `watcher.py` is running.
+- Organized files: `organized_storage/` directory
+- Database: `content_alchemist.db` (SQLite file in project root)
 
-### Where is my data stored?
+## Manual Processing
 
-- **Files**: `organized_storage/` folder
-- **Database**: `content_alchemist.db` (SQLite file in the project root)
-
-### Can I process files manually (without the watcher)?
-
-Yes! Use the test script:
+Process files without the watcher daemon:
 
 ```bash
+# Using the test script
 python3 test_pipeline.py
-```
 
-Or run the classifier directly:
-
-```bash
+# Direct classification
 python3 classifier.py path/to/your/file.pdf
 ```
 
----
+## Troubleshooting
 
-## 🐛 Troubleshooting
+### Missing Dependencies
 
-### "No module named 'PyPDF2'"
+```bash
+python3 -m pip install -r requirements.txt
+```
 
-Run: `python3 -m pip install -r requirements.txt`
+### API Rate Limiting
 
-### "API call failed: 429 quota exceeded"
+If you encounter "429 quota exceeded" errors, you've reached the Gemini API rate limit. Wait a few minutes or upgrade your API plan.
 
-You've hit the Gemini API rate limit. Wait a few minutes or upgrade your API plan.
+### Files Not Processing
 
-### "File not moved / still in drop zone"
-
+- Verify the file format is `.pdf` or `.txt` (unsupported formats move to `_unsupported/`)
 - Check the watcher terminal for error messages
-- Make sure the file is a `.pdf` or `.txt` (other formats go to `_unsupported/`)
-- Make sure the file isn't locked or being used by another program
+- Ensure files aren't locked by other programs
 
-### Dashboard shows "No files found"
+### Empty Dashboard
 
-- Make sure you've processed at least one file with the watcher
-- Check that `content_alchemist.db` exists in the project folder
+- Confirm at least one file has been processed
+- Verify `content_alchemist.db` exists in the project root
 
----
+## Example Workflow
 
-## 📊 Example Workflow
-
-**Scenario**: You have 100 research papers with names like `paper_final_v3.pdf`, `draft.pdf`, etc.
+**Scenario**: Organizing 100 research papers with inconsistent naming
 
 1. Start the watcher: `python3 watcher.py`
 2. Start the dashboard: `streamlit run main_dashboard.py`
-3. Drag all 100 PDFs into `input_drop_zone/`
-4. Wait 2-3 minutes (depending on file size and API speed)
-5. Check `organized_storage/` — all files are now:
-   - Sorted into category folders
-   - Renamed with descriptive names
-   - Searchable via the dashboard
+3. Copy all PDFs into `input_drop_zone/`
+4. Wait 2-3 minutes for processing
+5. Results:
+   - Files sorted into appropriate category folders
+   - Descriptive, standardized filenames
+   - Searchable summaries in the dashboard
 
----
+## Technical Details
 
-## 🎓 What You Learned
+This project demonstrates:
 
-By building this project, you now understand:
+- **File System Monitoring**: Real-time file detection with `watchdog`
+- **PDF Processing**: Text extraction using `PyPDF2`
+- **LLM Integration**: Structured prompting with Google Gemini API
+- **JSON Response Parsing**: Reliable extraction of AI-generated metadata
+- **Database Operations**: SQLite for persistent storage and search
+- **Web Interfaces**: Streamlit for rapid dashboard development
+- **File I/O**: Cross-platform file operations with Python's `os` and `shutil`
 
-- **File watching** with Python's `watchdog` library
-- **PDF text extraction** with PyPDF2
-- **LLM integration** with Google Gemini API
-- **Structured prompts** to get JSON responses from AI
-- **SQLite databases** for logging and search
-- **Streamlit dashboards** for building UIs without JavaScript
-- **File operations** (moving, renaming, folder creation)
+## Extension Ideas
 
----
+- Support additional file formats (`.docx`, `.epub`, `.html`)
+- Enhanced metadata extraction (authors, publication dates, citations)
+- Duplicate detection and deduplication
+- Email or webhook notifications
+- Cloud storage integration (Google Drive, Dropbox, S3)
+- OCR support for scanned documents
+- Batch processing mode for large archives
 
-## 🚀 Next Steps
+## Support
 
-Want to extend this project? Try:
+If you encounter issues:
 
-1. **Add more file types**: Support `.docx`, `.epub`, etc.
-2. **Smarter summaries**: Ask the LLM to extract key findings, authors, dates
-3. **Duplicate detection**: Check if a file already exists before processing
-4. **Email notifications**: Get notified when files are processed
-5. **Cloud storage**: Auto-upload organized files to Google Drive or Dropbox
+1. Check the watcher terminal for detailed error messages
+2. Verify your `.env` file contains a valid API key
+3. Inspect `organized_storage/_unclassified/` and `_unsupported/` directories
+4. Review the database: `sqlite3 content_alchemist.db` then `SELECT * FROM files;`
 
----
+## License
 
-## 📞 Need Help?
+MIT License - see LICENSE file for details
 
-If something isn't working, check:
+## Author
 
-1. The terminal where `watcher.py` is running (error messages appear there)
-2. Your `.env` file (make sure the API key is correct)
-3. The `organized_storage/` folder (files might be in `_unclassified/` or `_unsupported/`)
-
-Happy organizing! 🧪✨
+Atharva Mandhaniya  
+GitHub: [@atharva0710](https://github.com/atharva0710)
