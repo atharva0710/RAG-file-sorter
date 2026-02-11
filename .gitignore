@@ -1,0 +1,17 @@
+# Environment
+.env
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Project runtime
+input_drop_zone/
+organized_storage/
+*.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+.DS_Store

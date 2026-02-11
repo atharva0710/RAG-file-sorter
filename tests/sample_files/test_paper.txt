@@ -1,0 +1,56 @@
+Abstract: This paper presents a novel deep learning framework for predicting
+protein folding structures using transformer-based architectures. We introduce
+BioFormer, a multi-head attention model trained on over 200,000 protein
+sequences from the UniProt database. Our approach achieves state-of-the-art
+accuracy on the CASP14 benchmark, outperforming AlphaFold2 on 12 out of 15
+target categories. The model leverages evolutionary sequence embeddings combined
+with geometric constraints to predict 3D structures with an average GDT-TS
+score of 92.3. We demonstrate that pre-training on large-scale metagenomic data
+significantly improves generalization to orphan proteins. Our results suggest
+that attention mechanisms can capture long-range residue-residue contacts more
+effectively than convolutional approaches. The framework is implemented in
+PyTorch and will be made publicly available.
+
+Keywords: protein folding, deep learning, transformer, structural biology,
+bioinformatics, attention mechanism
+
+1. Introduction
+Protein structure prediction has been a grand challenge in computational
+biology for over five decades. The amino acid sequence of a protein determines
+its three-dimensional structure, which in turn dictates its biological function.
+Understanding this sequence-to-structure mapping is essential for drug design,
+enzyme engineering, and the study of genetic diseases.
+
+Recent advances in deep learning, particularly transformer architectures, have
+revolutionised the field. AlphaFold2 demonstrated that end-to-end neural
+networks can achieve near-experimental accuracy in structure prediction.
+However, several limitations remain, including high computational cost, poor
+performance on proteins with limited evolutionary information, and difficulty
+handling intrinsically disordered regions.
+
+In this work, we present BioFormer, a lightweight transformer model that
+addresses these challenges. Our key contributions include:
+- A novel pre-training strategy using metagenomic sequence data
+- An efficient attention mechanism that scales linearly with sequence length
+- A geometric loss function that directly optimises for structural accuracy
+- Comprehensive evaluation on CASP14 and CASP15 benchmarks
+
+2. Methods
+We employ a modified transformer encoder with 24 layers and 16 attention heads.
+The input features consist of multiple sequence alignments (MSAs) and pairwise
+distance predictions from a separate module. We use rotary position embeddings
+to encode residue positions and apply flash attention for memory efficiency.
+
+Training was conducted on 8 NVIDIA A100 GPUs over 14 days using mixed-precision
+training. The total dataset comprises 2.1 million protein structures from the
+Protein Data Bank (PDB) and predicted structures from the AlphaFold Protein
+Structure Database.
+
+3. Results
+Our model achieves a median GDT-TS of 92.3 on the CASP14 free-modelling
+targets, compared to 87.1 for AlphaFold2. On CASP15, we observe a 4.2%
+improvement in local distance difference test (lDDT) scores. Notably, BioFormer
+shows the largest gains on targets with shallow MSAs, suggesting effective
+utilisation of the pre-trained representations.
+
+Published: January 2026, Journal of Computational Biology
