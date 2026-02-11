@@ -3,6 +3,8 @@ classifier.py — Sends extracted text to Google Gemini Flash and
 returns structured classification data (category, filename, summary).
 
 Uses a strict "librarian" system prompt that forces JSON-only output.
+Supports dynamic categories: checks VALID_CATEGORIES first, then
+existing folders in organized_storage, and creates new ones if needed.
 """
 
 import os
@@ -23,7 +25,42 @@ VALID_CATEGORIES = [
     "Finance",
 ]
 
-SYSTEM_PROMPT = f"""\
+STORAGE_ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "organized_storage")
+
+
+def _get_existing_folders() -> list[str]:
+    """
+    Scan organized_storage/ and return a list of existing category folder names.
+    Excludes internal folders that start with '_' (like _unclassified, _unsupported).
+    """
+    if not os.path.isdir(STORAGE_ROOT):
+        return []
+    return [
+        name for name in os.listdir(STORAGE_ROOT)
+        if os.path.isdir(os.path.join(STORAGE_ROOT, name))
+        and not name.startswith("_")
+    ]
+
+
+def _get_all_categories() -> list[str]:
+    """
+    Merge VALID_CATEGORIES + existing folders (deduplicated, sorted).
+    This is what the AI sees as available options.
+    """
+    existing = _get_existing_folders()
+    merged = list(set(VALID_CATEGORIES + existing))
+    merged.sort()
+    return merged
+
+
+def _build_system_prompt() -> str:
+    """
+    Build the system prompt dynamically so it includes the current list
+    of all known categories (predefined + existing folders).
+    """
+    all_cats = _get_all_categories()
+
+    return f"""\
 You are a meticulous research librarian and file-organisation expert.
 
 Your job:
@@ -37,11 +74,17 @@ Rules:
 - The JSON must have exactly 3 keys:
   {{
     "summary_sentence": "A concise one-sentence summary of the document.",
-    "category": "One of {VALID_CATEGORIES}",
+    "category": "The best-fit category name",
     "suggested_filename": "year_topic_snake_case.pdf"
   }}
-- For "category", pick the BEST match from this list: {VALID_CATEGORIES}.
-  If nothing fits well, use "Personal".
+
+Category selection (FOLLOW THIS PRIORITY ORDER):
+  1. FIRST, try to fit the document into one of these EXISTING categories: {all_cats}
+  2. If NONE of the existing categories fit well, you MAY create a NEW category.
+     - New category names must be short (1-3 words), Title Case, and descriptive.
+     - Examples: "History", "Philosophy", "Cooking", "Health", "Legal".
+  3. Use "Personal" ONLY for truly personal documents (letters, journals, notes).
+
 - For "suggested_filename":
   • Start with the year if you can detect it (e.g. 2026_).
   • Use lowercase snake_case.
@@ -64,6 +107,10 @@ def classify_file(text: str, original_filename: str) -> dict:
     """
     Send extracted text + original filename to Gemini Flash.
 
+    Category logic:
+    1. AI tries to match an existing category (VALID + existing folders).
+    2. If nothing fits, AI creates a new descriptive category name.
+
     Returns a dict with keys:
         - summary_sentence (str)
         - category (str)
@@ -82,9 +129,12 @@ def classify_file(text: str, original_filename: str) -> dict:
         f"--- DOCUMENT TEXT ---\n{text}\n--- END ---"
     )
 
+    # Build prompt dynamically so it sees current folders
+    system_prompt = _build_system_prompt()
+
     model = genai.GenerativeModel(
         model_name=MODEL_NAME,
-        system_instruction=SYSTEM_PROMPT,
+        system_instruction=system_prompt,
     )
 
     try:
@@ -109,9 +159,13 @@ def classify_file(text: str, original_filename: str) -> dict:
         if not result["suggested_filename"].endswith(ext):
             result["suggested_filename"] += ext
 
-        # Normalise category
-        if result["category"] not in VALID_CATEGORIES:
-            result["category"] = "Personal"
+        # Sanitise the category name (remove slashes, trim whitespace)
+        result["category"] = result["category"].strip().replace("/", "-").replace("\\", "-")
+
+        # Log if the AI created a new category
+        all_known = _get_all_categories()
+        if result["category"] not in all_known:
+            print(f"[classifier] 🆕 New category created: '{result['category']}'")
 
         return result
 
@@ -145,6 +199,7 @@ if __name__ == "__main__":
     filepath = sys.argv[1]
     filename = os.path.basename(filepath)
 
+    print(f"Known categories: {_get_all_categories()}")
     print(f"Extracting text from '{filepath}'...")
     text = extract_text(filepath)
 
