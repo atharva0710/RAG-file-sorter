@@ -12,12 +12,14 @@ import json
 import google.generativeai as genai
 from dotenv import load_dotenv
 
+# Load API key from .env file to keep it secure
 load_dotenv()
 
 # ── Configuration ───────────────────────────────────────────────────
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 MODEL_NAME = "gemini-flash-latest"
 
+# Hard-coded starting categories
 VALID_CATEGORIES = [
     "Systems CS",
     "ML-Bio",
@@ -25,12 +27,14 @@ VALID_CATEGORIES = [
     "Finance",
 ]
 
+# Path to where files are organized
 STORAGE_ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "organized_storage")
 
 
 def _get_existing_folders() -> list[str]:
     """
     Scan organized_storage/ and return a list of existing category folder names.
+    This allows the AI to discover categories you manually created.
     Excludes internal folders that start with '_' (like _unclassified, _unsupported).
     """
     if not os.path.isdir(STORAGE_ROOT):
@@ -45,7 +49,7 @@ def _get_existing_folders() -> list[str]:
 def _get_all_categories() -> list[str]:
     """
     Merge VALID_CATEGORIES + existing folders (deduplicated, sorted).
-    This is what the AI sees as available options.
+    This ensures the AI knows about EVERY category available right now.
     """
     existing = _get_existing_folders()
     merged = list(set(VALID_CATEGORIES + existing))
@@ -55,8 +59,9 @@ def _get_all_categories() -> list[str]:
 
 def _build_system_prompt() -> str:
     """
-    Build the system prompt dynamically so it includes the current list
-    of all known categories (predefined + existing folders).
+    Build the system prompt dynamically.
+    Injects the current list of folders so the AI knows valid destinations.
+    Sets the "Librarian" persona and enforces strict JSON output.
     """
     all_cats = _get_all_categories()
 
@@ -94,7 +99,7 @@ Category selection (FOLLOW THIS PRIORITY ORDER):
 
 
 def _configure_client():
-    """Initialise the Gemini client with the API key."""
+    """Initialise the Google Gemini client with the API key."""
     if not GEMINI_API_KEY:
         raise EnvironmentError(
             "GEMINI_API_KEY is not set. "
@@ -105,23 +110,19 @@ def _configure_client():
 
 def classify_file(text: str, original_filename: str) -> dict:
     """
-    Send extracted text + original filename to Gemini Flash.
+    The Main Intelligence Function.
+    Sends extracted text + original filename to Gemini Flash.
 
-    Category logic:
-    1. AI tries to match an existing category (VALID + existing folders).
-    2. If nothing fits, AI creates a new descriptive category name.
-
-    Returns a dict with keys:
-        - summary_sentence (str)
-        - category (str)
-        - suggested_filename (str)
-
-    On failure (bad JSON, API error) returns a fallback dict
-    that places the file in '_unclassified'.
+    Steps:
+    1. Prepare prompt with filename and text.
+    2. Call Gemini API.
+    3. Clean and parse JSON response.
+    4. Validate and sanitize keys.
+    5. Return decision to watcher.py.
     """
     _configure_client()
 
-    # Preserve the original extension
+    # Preserve the original extension (e.g., .pdf) to use in the new filename
     ext = os.path.splitext(original_filename)[1].lower() or ".pdf"
 
     user_prompt = (
@@ -129,7 +130,7 @@ def classify_file(text: str, original_filename: str) -> dict:
         f"--- DOCUMENT TEXT ---\n{text}\n--- END ---"
     )
 
-    # Build prompt dynamically so it sees current folders
+    # Build prompt dynamically so it sees current folders on disk
     system_prompt = _build_system_prompt()
 
     model = genai.GenerativeModel(
@@ -138,38 +139,41 @@ def classify_file(text: str, original_filename: str) -> dict:
     )
 
     try:
+        # Send data to Google and wait for response
         response = model.generate_content(user_prompt)
         raw = response.text.strip()
 
-        # Defensive: strip possible markdown fences
+        # Defensive: strip possible markdown fences (```json ... ```)
         if raw.startswith("```"):
             raw = raw.split("\n", 1)[-1]
         if raw.endswith("```"):
             raw = raw.rsplit("```", 1)[0]
         raw = raw.strip()
 
+        # Parse the raw string into a Python dictionary
         result = json.loads(raw)
 
-        # Validate required keys
+        # Validate required keys exist
         for key in ("summary_sentence", "category", "suggested_filename"):
             if key not in result:
                 raise ValueError(f"Missing key: {key}")
 
-        # Ensure the extension is preserved
+        # Ensure the extension is preserved in the new filename
         if not result["suggested_filename"].endswith(ext):
             result["suggested_filename"] += ext
 
-        # Sanitise the category name (remove slashes, trim whitespace)
+        # Sanitise the category name (remove headers/slashes to avoid bad paths)
         result["category"] = result["category"].strip().replace("/", "-").replace("\\", "-")
 
-        # Log if the AI created a new category
+        # Log if the AI created a new category that didn't exist before
         all_known = _get_all_categories()
         if result["category"] not in all_known:
-            print(f"[classifier] 🆕 New category created: '{result['category']}'")
+            print(f"[classifier] New category created: '{result['category']}'")
 
         return result
 
     except (json.JSONDecodeError, ValueError, KeyError) as e:
+        # Fallback: If AI fails or returns bad JSON, move to _unclassified
         print(f"[classifier] WARNING: Could not parse LLM response: {e}")
         print(f"[classifier] Raw response was: {raw if 'raw' in dir() else 'N/A'}")
         return {
@@ -179,6 +183,7 @@ def classify_file(text: str, original_filename: str) -> dict:
         }
 
     except Exception as e:
+        # Fallback: API errors (network issues, etc.)
         print(f"[classifier] ERROR: API call failed: {e}")
         return {
             "summary_sentence": "API error during classification.",
